@@ -23,10 +23,18 @@ int main(int argc, char *argv[]) {
 
   Chip8 chip8;
 
-  while(running) {
+  initialise(&chip8);
+  load_rom(&chip8, argv[1]);
+
+  while (running) {
     running = display_handle_events();
+    if (execute_instruction(&chip8) < 0) {
+      printf("Stopping execution due to unknown opcode\n");
+      running = false;
+    }
     display_render(&chip8);
-    SDL_Delay(10);
+
+    SDL_Delay(16);
   }
 
   display_cleanup();

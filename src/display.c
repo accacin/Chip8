@@ -81,13 +81,13 @@ void display_render(Chip8 *chip8) {
 
   for (int i = 0; i < DISPLAY_WIDTH * DISPLAY_HEIGHT; i++) {
     if (chip8->display[i]) {
-      pixels[i] = 0xFFFFFFFF; // White pixel (ARGB: 255,255,255,0);
+      pixels[i] = 0xFFFFFFFF; // WHITE
     } else {
-      pixels[i] = 0xFF000000;
+      pixels[i] = 0xFF000000; // BLACK
     }
   }
 
-  // Pitch size what is it?
+  // Pitch size what is it?????
   SDL_UpdateTexture(texture, NULL, pixels, DISPLAY_WIDTH * sizeof(uint32_t));
 
   SDL_RenderClear(renderer);

@@ -9,9 +9,6 @@
 #define DISPLAY_WIDTH 64
 #define DISPLAY_HEIGHT 32
 
-// Where to go?
-// uint16_t opcode;
-
 typedef struct {
   uint8_t memory[4096];                                // Memory
   uint8_t V[16];                                       // General purpose registers
@@ -28,4 +25,5 @@ typedef struct {
 
 // Function Declarations
 void initialise(Chip8 *chip8);
-void loadGame(Chip8 *chip8, const char *filename);
+void load_rom(Chip8 *chip8, const char *filename);
+int execute_instruction(Chip8 *chip8);

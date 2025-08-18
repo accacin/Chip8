@@ -21,5 +21,9 @@ static const uint8_t fontset[80] = {
 };
 
 void initialise(Chip8 *chip8) {
-    // init
+    // TODO
+}
+
+void loadGame(Chip8 *chip8, const char *filename) {
+    // TODO
 }

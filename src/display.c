@@ -3,45 +3,49 @@
 
 #include "display.h"
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_events.h>
-#include <SDL2/SDL_keycode.h>
-#include <SDL2/SDL_render.h>
-#include <SDL2/SDL_video.h>
 #include <stdbool.h>
 #include <stdio.h>
 
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
+static SDL_Texture *texture = NULL;
 
 bool display_init(void) {
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     printf("Error initializing SDL: %s\n", SDL_GetError());
-    return 1;
+    return false;
   }
 
   window =
       SDL_CreateWindow("Example", SDL_WINDOWPOS_UNDEFINED,
-                       SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH * SCALE_FACTOR, WINDOW_HEIGHT * SCALE_FACTOR, SDL_WINDOW_SHOWN);
-
+                       SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH * SCALE_FACTOR,
+                       WINDOW_HEIGHT * SCALE_FACTOR, SDL_WINDOW_SHOWN);
   if (!window) {
     printf("Error creating window: %s\n", SDL_GetError());
-    return 1;
+    SDL_Quit();
+    return false;
   }
 
   renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-
-  if (!window) {
+  if (!renderer) {
     printf("Error creating renderer: %s\n", SDL_GetError());
-    return 1;
+    return false;
+  }
+
+  // 64 x 32 is the "base" width and height of the Chip8 display which we will
+  // scale up
+  texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
+                              SDL_TEXTUREACCESS_STREAMING, 64, 32);
+  if (!texture) {
+    printf("Error creating texture: %s\n", SDL_GetError());
+    return false;
   }
 
   return true;
 }
 
-bool display_loop(void) {
+bool display_handle_events(void) {
   SDL_Event event;
-  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-  SDL_RenderClear(renderer);
 
   while (SDL_PollEvent(&event) != 0) {
     if (event.type == SDL_QUIT ||
@@ -49,8 +53,6 @@ bool display_loop(void) {
       return false;
     }
   }
-
-  SDL_RenderPresent(renderer);
 
   return true;
 }
@@ -67,4 +69,30 @@ void display_cleanup(void) {
   }
 
   SDL_Quit();
+}
+
+// https://www.reddit.com/r/EmuDev/comments/4pclt1/chip8_and_sdl/
+void display_render(Chip8 *chip8) {
+  // We only want to draw when the draw flag is set
+  if (!chip8->draw_flag)
+    return;
+
+  static uint32_t pixels[DISPLAY_WIDTH * DISPLAY_HEIGHT];
+
+  for (int i = 0; i < DISPLAY_WIDTH * DISPLAY_HEIGHT; i++) {
+    if (chip8->display[i]) {
+      pixels[i] = 0xFFFFFFFF; // White pixel (ARGB: 255,255,255,0);
+    } else {
+      pixels[i] = 0xFF000000;
+    }
+  }
+
+  // Pitch size what is it?
+  SDL_UpdateTexture(texture, NULL, pixels, DISPLAY_WIDTH * sizeof(uint32_t));
+
+  SDL_RenderClear(renderer);
+  SDL_RenderCopy(renderer, texture, NULL, NULL);
+  SDL_RenderPresent(renderer);
+
+  chip8->draw_flag = 0;
 }

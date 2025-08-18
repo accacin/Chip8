@@ -1,4 +1,3 @@
-#include "chip8.h"
 #include "display.h"
 #include <SDL2/SDL_timer.h>
 #include <stdio.h>
@@ -20,7 +19,13 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  while (display_loop()) {
+  bool running = true;
+
+  Chip8 chip8;
+
+  while(running) {
+    running = display_handle_events();
+    display_render(&chip8);
     SDL_Delay(10);
   }
 

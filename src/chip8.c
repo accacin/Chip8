@@ -73,13 +73,12 @@ int execute_instruction(Chip8 *chip8) {
   uint8_t nn = (opcode & 0x00FF);
   uint16_t nnn = (opcode & 0x0FFF);
 
-  // TODO
+  // TODO for IBM
   // 00E0 - clear
   // 1NNN - jump
   // 6XNN - sex reg vx
   // 7XNN - add value to vx
   // ANNN - set index register I
-  //
   // DXYN - display/draw
 
   switch (opcode & 0xF000) {
@@ -126,33 +125,63 @@ int execute_instruction(Chip8 *chip8) {
     // case 0xC000:
     //   break;
   case 0xD000: {
+    // The first thing to do is to get the X and Y coordinates from VX and VY.
     uint8_t x_coord = chip8->V[x];
     uint8_t y_coord = chip8->V[y];
 
+    // Set the X coordinate to the value in VX modulo 64 (or, equivalently, VX &
+    // 63, where & is the binary AND operation)
+    int x_wrap = x_coord & 63;
+    // Set the Y coordinate to the value in VX modulo 64 (or, equivalently, VX &
+    // 63, where & is the binary AND operation)
+    int y_wrap = y_coord & 31;
+    // Set VF to 0
     chip8->V[0xF] = 0;
 
-    for (int yLine = 0; yLine < n; yLine++) {
-      uint8_t sprite_byte = chip8->memory[chip8->I + yLine];
+    for (int row = 0; row < n; row++) {
+      // Stop if you reach the bottom edge of the screen
+      if ((y_wrap + row) >= 32)
+        break;
+      // Get the Nth byte of sprite data, counting from the memory address in
+      // the I register (I is not incremented)
+      uint8_t sprite = chip8->memory[chip8->I + row];
+      // For each of the 8 pixels/bits in this sprite row (from left to right,
+      // ie. from most to least significant bit):
+      for (int col = 0; col < 8; col++) {
+        int screen_x = x_wrap + col;
+        int screen_y = y_wrap + row;
 
-      for (int xLine = 0; xLine < 8; xLine++) {
-        if ((sprite_byte & (0x80 >> xLine)) != 0) {
-          int pixel_x = (x_coord + xLine) % DISPLAY_WIDTH;
-          int pixel_y = (y_coord + yLine) % DISPLAY_HEIGHT;
-          int pixel_index = pixel_x + (pixel_y * DISPLAY_WIDTH);
+        // If you reach the right edge of the screen, stop drawing this row
+        if (screen_x >= 64)
+          break;
 
-          if (chip8->display[pixel_index] == 1) {
+        // Current pixel
+        int sprite_pixel = (sprite >> (7 - col)) & 1;
+        // Convert screen_y and screen_x into an index (1d array)
+        int screen_index = screen_y * 64 + screen_x;
+
+        // If the current pixel in the sprite row is on
+        if (sprite_pixel) {
+          int screen_pixel = chip8->display[screen_index];
+          // and the pixel at coordinates X,Y on the screen is also on,
+          if (screen_pixel) {
+            // turn off the pixel
+            chip8->display[screen_index] = 0;
+            // and set VF to 1
             chip8->V[0xF] = 1;
+          } else {
+            // Or if the current pixel in the sprite row is on and the screen
+            // pixel is not, draw the pixel at the X and Y coordinates
+            chip8->display[screen_index] = 1;
           }
-
-          chip8->display[pixel_index] ^= 1;
         }
       }
     }
-
     chip8->draw_flag = 1;
     chip8->pc += 2;
     break;
-  }
+
+  } break;
     // case 0xE000:
     //   break;
   case 0xF000:

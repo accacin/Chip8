@@ -29,7 +29,6 @@ int main(int argc, char *argv[]) {
   while (running) {
     running = display_handle_events();
     if (execute_instruction(&chip8) < 0) {
-      printf("Stopping execution due to unknown opcode\n");
       running = false;
     }
     display_render(&chip8);

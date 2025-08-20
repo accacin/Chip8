@@ -65,6 +65,7 @@ int execute_instruction(Chip8 *chip8) {
   // how to erad it
   uint16_t opcode;
   opcode = (chip8->memory[chip8->pc] << 8) | chip8->memory[chip8->pc + 1];
+  // printf("DEBUG: Executing opcode 0x%X at PC 0x%X\n", opcode, chip8->pc);
 
   // https://tobiasvl.github.io/blog/write-a-chip-8-emulator/#instructions
   uint8_t x = (opcode & 0x0F00) >> 8;
@@ -89,21 +90,40 @@ int execute_instruction(Chip8 *chip8) {
       chip8->draw_flag = 1;
       chip8->pc += 2;
       break;
-    default:
+    case 0xEE:
+      chip8->sp -= 1;
+      chip8->pc = chip8->stack[chip8->sp];
       break;
+    default:
+    printf("Unimplemented opcode: 0x%X\n", opcode);
+      return -1;
     }
     break;
   case 0x1000:
     chip8->pc = nnn;
+    chip8->pc += 2;
     break;
-  // case 0x2000:
-  //   break;
-  // case 0x3000:
-  //   break;
-  // case 0x4000:
-  //   break;
-  // case 0x5000:
-  //   break;
+  case 0x2000:
+    // TODO: Handle stack overflow?
+    chip8->stack[chip8->sp] = chip8->pc += 2;
+    chip8->sp += 1;
+    chip8->pc = nnn;
+    break;
+  case 0x3000:
+    if (chip8->V[x] == nn)
+      chip8->pc += 2;
+    chip8->pc += 2;
+    break;
+  case 0x4000:
+    if (chip8->V[x] != nn)
+      chip8->pc += 2;
+    chip8->pc += 2;
+    break;
+  case 0x5000:
+    if (chip8->V[x] == chip8->V[y])
+      chip8->pc += 2;
+    chip8->pc += 2;
+    break;
   case 0x6000:
     chip8->V[x] = nn;
     chip8->pc += 2;
@@ -112,10 +132,32 @@ int execute_instruction(Chip8 *chip8) {
     chip8->V[x] += nn;
     chip8->pc += 2;
     break;
-  // case 0x8000:
-  //   break;
-  // case 0x9000:
-  //   break;
+  case 0x8000:
+    switch (n) {
+    case 0x0:
+      chip8->V[x] = chip8->V[y];
+      chip8->pc += 2;
+      break;
+    case 0x5:
+      chip8->V[0xF] = chip8->V[x] >= chip8->V[y] ? 1 : 0;
+      chip8->V[x] = chip8->V[x] - chip8->V[y];
+      chip8->pc += 2;
+      break;
+    case 0x7:
+      chip8->V[0xF] = chip8->V[x] >= chip8->V[y] ? 1 : 0;
+      chip8->V[x] = chip8->V[y] - chip8->V[x];
+      chip8->pc += 2;
+      break;
+    default:
+    printf("Unimplemented opcode: 0x%X\n", opcode);
+      return -1;
+    }
+    break;
+  case 0x9000:
+    if (chip8->V[x] != chip8->V[y])
+      chip8->pc += 2;
+    chip8->pc += 2;
+    break;
   case 0xA000:
     chip8->I = nnn;
     chip8->pc += 2;
@@ -184,7 +226,17 @@ int execute_instruction(Chip8 *chip8) {
   } break;
     // case 0xE000:
     //   break;
-  case 0xF000:
+  case 0xF000: // NOT SURE
+    switch (nn) {
+    case 0x29:
+      chip8->I = chip8->memory[FONT_START + x];
+      chip8->I = FONT_START + (chip8->V[x] * 5);
+      chip8->pc += 2;
+      break;
+    default:
+    printf("Unimplemented opcode: 0x%X\n", opcode);
+      return -1;
+    }
     break;
   default:
     printf("Unimplemented opcode: 0x%X\n", opcode);

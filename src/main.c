@@ -1,9 +1,12 @@
 #include "display.h"
 #include <SDL2/SDL_timer.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 int main(int argc, char *argv[]) {
 
+  srand(time(NULL));
   // Just for testing
   // for (int i = 0; i < argc; ++i) {
   //   printf("%s \n", argv[i]);

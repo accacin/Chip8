@@ -3,6 +3,8 @@
 
 #include "display.h"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_events.h>
+#include <SDL2/SDL_keycode.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -48,10 +50,16 @@ bool display_handle_events(void) {
   SDL_Event event;
 
   while (SDL_PollEvent(&event) != 0) {
-    if (event.type == SDL_QUIT ||
-        (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)) {
+    switch (event.type) {
+    case SDL_QUIT:
       return false;
+    case SDL_KEYDOWN:
+      switch (event.key.keysym.sym) {
+      case SDLK_ESCAPE:
+        return false;
+      }
     }
+
   }
 
   return true;

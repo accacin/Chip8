@@ -1,7 +1,10 @@
 #include "chip8.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+static uint8_t QUIRK_MODE = 1;
 
 static const uint8_t fontset[80] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -95,13 +98,12 @@ int execute_instruction(Chip8 *chip8) {
       chip8->pc = chip8->stack[chip8->sp];
       break;
     default:
-    printf("Unimplemented opcode: 0x%X\n", opcode);
+      printf("Unimplemented opcode: 0x%X\n", opcode);
       return -1;
     }
     break;
   case 0x1000:
     chip8->pc = nnn;
-    chip8->pc += 2;
     break;
   case 0x2000:
     // TODO: Handle stack overflow?
@@ -138,9 +140,33 @@ int execute_instruction(Chip8 *chip8) {
       chip8->V[x] = chip8->V[y];
       chip8->pc += 2;
       break;
+    case 0x1:
+      chip8->V[x] = chip8->V[x] | chip8->V[y];
+      chip8->pc += 2;
+      break;
+    case 0x2:
+      chip8->V[x] = chip8->V[x] & chip8->V[y];
+      chip8->pc += 2;
+      break;
+    case 0x3:
+      chip8->V[x] = chip8->V[x] ^ chip8->V[y];
+      chip8->pc += 2;
+      break;
+    case 0x4:
+      chip8->V[x] = chip8->V[x] + chip8->V[y];
+      chip8->pc += 2;
+      break;
     case 0x5:
       chip8->V[0xF] = chip8->V[x] >= chip8->V[y] ? 1 : 0;
       chip8->V[x] = chip8->V[x] - chip8->V[y];
+      chip8->pc += 2;
+      break;
+    case 0x6:
+      // set to be configurable
+      if (QUIRK_MODE)
+        chip8->V[x] = chip8->V[y];
+      chip8->V[0xF] = chip8->V[x] & 0x1;
+      chip8->V[x] >>= 1;
       chip8->pc += 2;
       break;
     case 0x7:
@@ -148,8 +174,16 @@ int execute_instruction(Chip8 *chip8) {
       chip8->V[x] = chip8->V[y] - chip8->V[x];
       chip8->pc += 2;
       break;
+    case 0xE:
+      // set to be configurable
+      if (QUIRK_MODE)
+        chip8->V[x] = chip8->V[y];
+      chip8->V[0xF] = chip8->V[x] & 0x1;
+      chip8->V[x] <<= 1;
+      chip8->pc += 2;
+      break;
     default:
-    printf("Unimplemented opcode: 0x%X\n", opcode);
+      printf("Unimplemented opcode: 0x%X\n", opcode);
       return -1;
     }
     break;
@@ -162,10 +196,18 @@ int execute_instruction(Chip8 *chip8) {
     chip8->I = nnn;
     chip8->pc += 2;
     break;
-    // case 0xB000:
-    //   break;
-    // case 0xC000:
-    //   break;
+  case 0xB000: {
+    uint16_t jump_address;
+    jump_address = 1 ? nnn + chip8->V[0] : ((x << 8) | nn) + chip8->V[x];
+    chip8->pc = jump_address;
+    break;
+  }
+  case 0xC000: {
+    uint8_t random_number = rand() & 0xFF;
+    chip8->V[x] = random_number & nn;
+    chip8->pc += 2;
+    break;
+  }
   case 0xD000: {
     // The first thing to do is to get the X and Y coordinates from VX and VY.
     uint8_t x_coord = chip8->V[x];
@@ -224,17 +266,106 @@ int execute_instruction(Chip8 *chip8) {
     break;
 
   } break;
-    // case 0xE000:
-    //   break;
+  case 0xE000:
+    switch (nn) {
+    case 0x9E: {
+      uint8_t key_register = chip8->V[x];
+      if (chip8->keys[key_register] == 1) {
+        chip8->pc += 2;
+      }
+      chip8->pc += 2;
+      break;
+    }
+    case 0xA1: {
+      uint8_t key_register = chip8->V[x];
+      if (chip8->keys[key_register] != 1) {
+        chip8->pc += 2;
+      }
+      chip8->pc += 2;
+      break;
+    }
+    }
+    break;
   case 0xF000: // NOT SURE
     switch (nn) {
+    case 0x07:
+      chip8->V[x] = chip8->delay_timer;
+      chip8->pc += 2;
+      break;
+    case 0x15:
+      chip8->delay_timer = chip8->V[x];
+      chip8->pc += 2;
+      break;
+    case 0x18:
+      chip8->sound_timer = chip8->V[x];
+      chip8->pc += 2;
+      break;
+    case 0x1E:
+      // Set to be configurable
+      chip8->I += chip8->V[x];
+      if (!QUIRK_MODE) {
+        if (chip8->I > 0xFFF) {
+          chip8->V[0xF] = 1;
+        } else {
+          chip8->V[0xF] = 0;
+        }
+      }
+      chip8->pc += 2;
+      break;
+    case 0x0A: {
+      int key_pressed = 0;
+
+      for (int idx = 0; idx <= 0xF; ++idx) {
+        if (chip8->keys[idx] != 0) {
+          chip8->V[x] = idx;
+          key_pressed = 1;
+          break;
+        }
+      }
+
+      if (!key_pressed) {
+        // return 0;
+        break;
+      }
+      chip8->pc += 2;
+    } break;
     case 0x29:
       chip8->I = chip8->memory[FONT_START + x];
       chip8->I = FONT_START + (chip8->V[x] * 5);
       chip8->pc += 2;
       break;
+    case 0x33:
+      chip8->memory[chip8->I] = chip8->V[x] / 100;
+      chip8->memory[chip8->I + 1] = (chip8->V[x] % 100) / 10;
+      chip8->memory[chip8->I + 2] = (chip8->V[x] % 10);
+      chip8->pc += 2;
+      break;
+    case 0x55: {
+      uint8_t start = chip8->I;
+      for (int idx = 0; idx <= x; ++idx) {
+        if (QUIRK_MODE) {
+          chip8->memory[chip8->I++] = chip8->V[idx];
+        } else {
+          chip8->memory[start + idx] = chip8->V[idx];
+        }
+      }
+      chip8->pc += 2;
+      break;
+    }
+    case 0x65: {
+      uint8_t start = chip8->I;
+      for (int idx = 0; idx <= x; ++idx) {
+        if (QUIRK_MODE) {
+          chip8->V[idx] = chip8->memory[chip8->I++];
+        } else {
+          chip8->V[idx] = chip8->memory[start + idx];
+        }
+      }
+      chip8->pc += 2;
+      break;
+    }
     default:
-    printf("Unimplemented opcode: 0x%X\n", opcode);
+      printf("Unimplemented opcode: 0x%X\n", opcode);
       return -1;
     }
     break;

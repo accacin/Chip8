@@ -30,11 +30,20 @@ int main(int argc, char *argv[]) {
   load_rom(&chip8, argv[1]);
 
   while (running) {
-    running = display_handle_events();
+    running = display_handle_events(&chip8);
     if (execute_instruction(&chip8) < 0) {
       running = false;
     }
     display_render(&chip8);
+    if (chip8.delay_timer > 0)
+      chip8.delay_timer -= 1;
+
+    if (chip8.sound_timer > 0) {
+      sound_enabled = 1;
+      chip8.sound_timer -= 1;
+    } else {
+      sound_enabled = 0;
+    }
 
     SDL_Delay(16);
   }
